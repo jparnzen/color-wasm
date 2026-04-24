@@ -44,7 +44,7 @@ mod tests {
     fn test_oklab_xyz_roundtrip() {
         const EPSILON: f64 = 1e-10;
 
-        let original = [0.5, 0.4, 29.2];
+        let original = [0.5, 0.2, -0.05];
 
         let forward = oklab_to_xyz(&original);
         let back = xyz_to_oklab(&forward);
