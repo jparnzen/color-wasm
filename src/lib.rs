@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-// mod gamutmap;
+mod gamutmap;
 mod matrix;
 mod spaces;
 
