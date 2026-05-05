@@ -6,13 +6,13 @@ mod spaces;
 
 use matrix::Vector3;
 
-use crate::spaces::convert::{Color, OKLCH, SRGB, convert};
+use crate::spaces::convert::{Color, OKLCH, SRGB};
 
 #[wasm_bindgen]
 pub fn srgb_to_oklch(r: f32, g: f32, b: f32) -> Vec<f32> {
     let rgb: Vector3 = [f64::from(r), f64::from(g), f64::from(b)];
 
-    let [l, c, h] = convert::<SRGB, OKLCH>(&Color::new(rgb)).coords;
+    let [l, c, h] = Color::<SRGB>::new(rgb).convert_to::<OKLCH>().coords;
 
     vec![l as f32, c as f32, h as f32]
 }
@@ -21,7 +21,7 @@ pub fn srgb_to_oklch(r: f32, g: f32, b: f32) -> Vec<f32> {
 pub fn oklch_to_srgb(l: f32, c: f32, h: f32) -> Vec<f32> {
     let lch: Vector3 = [f64::from(l), f64::from(c), f64::from(h)];
 
-    let [r, g, b] = convert::<OKLCH, SRGB>(&Color::new(lch)).coords;
+    let [r, g, b] = Color::<OKLCH>::new(lch).convert_to::<SRGB>().coords;
 
     vec![r as f32, g as f32, b as f32]
 }
@@ -42,7 +42,6 @@ mod tests {
         let back = oklch_to_srgb(lch[0], lch[1], lch[2]);
 
         for (a, b) in rgb.iter().zip(back.iter()) {
-            // println!("|a - b| = {}", (a - b).abs());
             assert!((a - b).abs() < EPSILON);
         }
     }

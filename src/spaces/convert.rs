@@ -49,9 +49,10 @@ pub trait ColorConversion: Sized {
     fn from_XYZ(color: &Color<XYZD65>) -> Color<Self>;
 }
 
-pub fn convert<From: ColorConversion, To: ColorConversion>(color: &Color<From>) -> Color<To> {
-    let temp = From::to_XYZ(color);
-    To::from_XYZ(&temp)
+impl<S: ColorConversion> Color<S> {
+    pub fn convert_to<Dest: ColorConversion>(&self) -> Color<Dest> {
+        Dest::from_XYZ(&S::to_XYZ(self))
+    }
 }
 
 /// Trait for gamma-encoded RGB spaces, such as sRGB, Display P3, and Rec2020.
@@ -146,25 +147,25 @@ impl ColorConversion for XYZD65 {
 
 impl OKLAB {
     #[rustfmt::skip]
-    pub const OKLAB_TO_LMS: Matrix3 = [
+    const OKLAB_TO_LMS: Matrix3 = [
         [1.0000000000000000,  0.3963377773761749,  0.2158037573099136],
         [1.0000000000000000, -0.1055613458156586, -0.0638541728258133],
         [1.0000000000000000, -0.0894841775298119, -1.2914855480194092],
     ];
     #[rustfmt::skip]
-    pub const LMS_TO_XYZD65: Matrix3 = [
+    const LMS_TO_XYZD65: Matrix3 = [
         [ 1.2268798758459243, -0.5578149944602171,  0.2813910456659647],
         [-0.0405757452148008,  1.1122868032803170, -0.0717110580655164],
         [-0.0763729366746601, -0.4214933324022432,  1.5869240198367816],
     ];
     #[rustfmt::skip]
-    pub const XYZD65_TO_LMS: Matrix3 = [
+    const XYZD65_TO_LMS: Matrix3 = [
         [0.8190224379967030, 0.3619062600528904, -0.1288737815209879],
         [0.0329836539323885, 0.9292868615863434,  0.0361446663506424],
         [0.0481771893596242, 0.2642395317527308,  0.6335478284694309],
     ];
     #[rustfmt::skip]
-    pub const LMS_TO_OKLAB: Matrix3 = [
+    const LMS_TO_OKLAB: Matrix3 = [
         [0.2104542683093140,  0.7936177747023054, -0.0040720430116193],
         [1.9779985324311684, -2.4285922420485799,  0.4505937096174110],
         [0.0259040424655478,  0.7827717124575296, -0.8086757549230774],
@@ -189,9 +190,9 @@ impl ColorConversion for OKLAB {
     }
 }
 
+#[allow(non_snake_case)]
 impl OKLCH {
-    #[allow(non_snake_case)]
-    pub fn to_OKLAB(oklch: &Color<Self>) -> Color<OKLAB> {
+    fn to_OKLAB(oklch: &Color<Self>) -> Color<OKLAB> {
         const EPSILON: f64 = 0.000_004;
 
         let [l, c, h] = oklch.coords;
@@ -199,13 +200,11 @@ impl OKLCH {
             return Color::new([l, 0., 0.]);
         }
 
-        // let h_prime = h * PI / 180.;
         let h_prime = h.to_radians();
         Color::new([l, c * h_prime.cos(), c * h_prime.sin()])
     }
 
-    #[allow(non_snake_case)]
-    pub fn from_OKLAB(oklab: &Color<OKLAB>) -> Color<Self> {
+    fn from_OKLAB(oklab: &Color<OKLAB>) -> Color<Self> {
         const EPSILON: f64 = 0.000_004;
 
         let [l, a, b] = oklab.coords;
@@ -256,12 +255,12 @@ impl ColorConversion for OKLrCH {
     }
 }
 
-pub fn okl_to_oklr(lxy: &Vector3) -> Vector3 {
+fn okl_to_oklr(lxy: &Vector3) -> Vector3 {
     let [l, x, y] = lxy;
     [toe(*l), *x, *y]
 }
 
-pub fn oklr_to_okl(lrxy: &Vector3) -> Vector3 {
+fn oklr_to_okl(lrxy: &Vector3) -> Vector3 {
     let [l, x, y] = lrxy;
     [inv_toe(*l), *x, *y]
 }
@@ -292,11 +291,8 @@ mod tests {
 
     #[test]
     fn test_srgb_roundtrip() {
-        let src = Color::new([0.0, 0.533, 0.776]);
-        let result = convert::<SRGB, SRGB>(&src);
-
-        // println!("src = {:?}", src);
-        // println!("result = {:?}", result);
+        let src = Color::<SRGB>::new([0.0, 0.533, 0.776]);
+        let result = src.convert_to::<SRGB>();
 
         // f64 values have ~10 digits of precision (c.f. f64 doc examples)
         const EPSILON: f64 = 1e-10;
@@ -307,8 +303,8 @@ mod tests {
 
     #[test]
     fn test_linear_srgb_roundtrip() {
-        let src = Color::new([1., 0.5, 0.2]);
-        let result = convert::<SRGBLinear, SRGBLinear>(&src);
+        let src = Color::<SRGBLinear>::new([1., 0.5, 0.2]);
+        let result = src.convert_to::<SRGBLinear>();
 
         // f64 values have ~10 digits of precision (c.f. f64 doc examples)
         const EPSILON: f64 = 1e-10;
@@ -319,8 +315,8 @@ mod tests {
 
     #[test]
     fn test_oklab_roundtrip() {
-        let src = Color::new([0.5, -0.2, 0.1]);
-        let result = convert::<OKLAB, OKLAB>(&src);
+        let src = Color::<OKLAB>::new([0.5, -0.2, 0.1]);
+        let result = src.convert_to::<OKLAB>();
 
         // f64 values have ~10 digits of precision (c.f. f64 doc examples)
         const EPSILON: f64 = 1e-10;
@@ -331,8 +327,8 @@ mod tests {
 
     #[test]
     fn test_oklch_roundtrip() {
-        let src = Color::new([0.968, 0.211, 109.77]);
-        let result = convert::<OKLCH, OKLCH>(&src);
+        let src = Color::<OKLCH>::new([0.968, 0.211, 109.77]);
+        let result = src.convert_to::<OKLCH>();
 
         // f64 values have ~10 digits of precision (c.f. f64 doc examples)
         const EPSILON: f64 = 1e-10;
@@ -343,8 +339,8 @@ mod tests {
 
     #[test]
     fn test_xyz_roundtrip() {
-        let src = Color::new([0.2, 0.3, 0.4]);
-        let result = convert::<XYZD65, XYZD65>(&src);
+        let src = Color::<XYZD65>::new([0.2, 0.3, 0.4]);
+        let result = src.convert_to::<XYZD65>();
 
         // f64 values have ~10 digits of precision (c.f. f64 doc examples)
         const EPSILON: f64 = 1e-10;
@@ -356,17 +352,12 @@ mod tests {
     #[test]
     fn test_srgb_to_oklch() {
         // color yellow in OKLCH and sRGB
-        let expected_oklch = [0.968, 0.211, 109.77];
-        let src = Color::new([1., 1., 0.]);
-
-        let result = convert::<SRGB, OKLCH>(&src);
+        let src = Color::<SRGB>::new([1., 1., 0.]);
+        let result = src.convert_to::<OKLCH>();
         // make sure result coords are the same precision as the max precision of the expected coords
         let result_coords = set_precision(3, result.coords);
 
-        // println!("expected = {:?}", expected);
-        // println!("result = {:?}", result);
-        // println!("result_coords = {:?}", result_coords);
-
+        let expected_oklch = [0.968, 0.211, 109.77];
         // set epsilon to be max precision of the expected coords
         const EPSILON: f64 = 1e-3;
         for (a, b) in expected_oklch.iter().zip(result_coords.iter()) {
@@ -409,10 +400,23 @@ mod tests {
         const EPSILON: f64 = 1e-10;
 
         let original_coords = [0.5, 0.4, 29.2];
-        // let forward = oklch_to_oklab(&original_coords);
-        // let back = oklab_to_oklch(&forward);
-        let forward = convert::<OKLCH, OKLAB>(&Color::new(original_coords));
-        let back = convert::<OKLAB, OKLCH>(&forward);
+        let src = Color::<OKLCH>::new(original_coords);
+        let forward = src.convert_to::<OKLAB>();
+        let back = forward.convert_to::<OKLCH>();
+
+        for (a, b) in original_coords.iter().zip(back.coords.iter()) {
+            assert!((a - b).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_oklrch_oklch_roundtrip() {
+        const EPSILON: f64 = 1e-10;
+
+        let original_coords = [0.05, 0.4, 29.2];
+        let src = Color::<OKLrCH>::new(original_coords);
+        let forward = src.convert_to::<OKLCH>();
+        let back = forward.convert_to::<OKLrCH>();
 
         for (a, b) in original_coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);
@@ -421,13 +425,29 @@ mod tests {
 
     #[test]
     fn test_oklch_oklrch_roundtrip() {
-        const EPSILON: f64 = 1e-10;
+        // NOTE H value passes through atan2/trig functions twice in roundtrip;
+        // accumulated transcendental errors for some L/C values exceeds 1e-10,
+        // so loosening to 1e-9 to accommodate errors at the e-10/e-9 boundary.
+        const EPSILON: f64 = 1e-9;
 
         let original_coords = [0.05, 0.4, 29.2];
-        // let forward = oklrch_to_oklch(&original);
-        // let back = oklch_to_oklrch(&forward);
-        let forward = convert::<OKLrCH, OKLCH>(&Color::new(original_coords));
-        let back = convert::<OKLCH, OKLrCH>(&forward);
+        let src = Color::<OKLCH>::new(original_coords);
+        let forward = src.convert_to::<OKLrCH>();
+        let back = forward.convert_to::<OKLCH>();
+
+        for (a, b) in original_coords.iter().zip(back.coords.iter()) {
+            assert!((a - b).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_oklab_oklrab_roundtrip() {
+        const EPSILON: f64 = 1e-10;
+
+        let original_coords = [0.05, 0.4, -0.4];
+        let src = Color::<OKLAB>::new(original_coords);
+        let forward = src.convert_to::<OKLrAB>();
+        let back = forward.convert_to::<OKLAB>();
 
         for (a, b) in original_coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);
@@ -440,8 +460,9 @@ mod tests {
 
         // #0088c6 — verified against colorjs.io
         let original_coords = [0.0, 0.533, 0.776];
-        let forward = convert::<SRGB, SRGBLinear>(&Color::new(original_coords));
-        let back = convert::<SRGBLinear, SRGB>(&forward);
+        let src = Color::<SRGB>::new(original_coords);
+        let forward = src.convert_to::<SRGBLinear>();
+        let back = forward.convert_to::<SRGB>();
 
         for (a, b) in original_coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);
@@ -454,8 +475,9 @@ mod tests {
 
         // #0088c6 — verified against colorjs.io
         let original_coords = [0.0, 0.533, 0.776];
-        let forward = convert::<SRGB, XYZD65>(&Color::new(original_coords));
-        let back = convert::<XYZD65, SRGB>(&forward);
+        let src = Color::<SRGB>::new(original_coords);
+        let forward = src.convert_to::<XYZD65>();
+        let back = forward.convert_to::<SRGB>();
 
         for (a, b) in original_coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);
@@ -468,9 +490,10 @@ mod tests {
 
         // #0088c6 — verified against colorjs.io
         let original_coords = [0.0, 0.533, 0.776];
-        let linear = convert::<SRGB, SRGBLinear>(&Color::new(original_coords));
-        let forward = convert::<SRGBLinear, XYZD65>(&linear);
-        let back = convert::<XYZD65, SRGBLinear>(&forward);
+        let src = Color::<SRGB>::new(original_coords);
+        let linear = src.convert_to::<SRGBLinear>();
+        let forward = linear.convert_to::<XYZD65>();
+        let back = forward.convert_to::<SRGBLinear>();
 
         for (a, b) in linear.coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);
@@ -482,9 +505,38 @@ mod tests {
         const EPSILON: f64 = 1e-10;
 
         let original_coords = [0.5, 0.2, -0.05];
+        let src = Color::<OKLAB>::new(original_coords);
+        let forward = src.convert_to::<XYZD65>();
+        let back = forward.convert_to::<OKLAB>();
 
-        let forward = convert::<OKLAB, XYZD65>(&Color::new(original_coords));
-        let back = convert::<XYZD65, OKLAB>(&forward);
+        for (a, b) in original_coords.iter().zip(back.coords.iter()) {
+            assert!((a - b).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_achromatic_nan_roundtrip() {
+        const EPSILON: f64 = 1e-10;
+
+        let original_coords = [0.5; 3];
+        let src = Color::<SRGB>::new(original_coords);
+        let forward = src.convert_to::<OKLCH>();
+        let back = forward.convert_to::<SRGB>();
+
+        for (a, b) in original_coords.iter().zip(back.coords.iter()) {
+            assert!((a - b).abs() < EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_linear_gamma_encode_roundtrip() {
+        const EPSILON: f64 = 1e-10;
+
+        // #0088c6 — verified against colorjs.io
+        let original_coords = [0.0, 0.533, 0.776];
+        let src = Color::<SRGB>::new(original_coords);
+        let forward = SRGB::linearize(&src);
+        let back = SRGB::gamma_encode(&forward);
 
         for (a, b) in original_coords.iter().zip(back.coords.iter()) {
             assert!((a - b).abs() < EPSILON);

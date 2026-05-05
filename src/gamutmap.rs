@@ -1,78 +1,20 @@
 use crate::matrix::Vector3;
-use crate::spaces::{oklab, oklch};
+use crate::spaces::convert::{Color, convert};
 
-#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ColorSpace {
     SRGB,
     SRGBLinear,
+    XYZD65,
     OKLAB,
     OKLCH,
     OKLrAB,
     OKLrCH,
-    XYZD65,
-}
-
-impl ColorSpace {
-    fn is_rgb(&self) -> bool {
-        if matches!(self, Self::SRGB | Self::SRGBLinear) {
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Color {
-    pub space: ColorSpace,
-    pub coords: Vector3,
-}
-
-impl Color {
-    fn new(space: ColorSpace, coords: Vector3) -> Self {
-        Color { space, coords }
-    }
-
-    fn convert(&self, dest_color_space: ColorSpace) -> Self {
-        if self.space == dest_color_space {
-            return *self;
-        }
-
-        let to_xyz = match self.space {
-            ColorSpace::SRGB => srgb::srgb_to_xyz(&self.coords),
-            ColorSpace::SRGBLinear => srgb::linear_srgb_to_xyz(&self.coords),
-            ColorSpace::OKLAB => oklab::oklab_to_xyz(&self.coords),
-            ColorSpace::OKLCH => oklab::oklab_to_xyz(&oklch::oklch_to_oklab(&self.coords)),
-            ColorSpace::XYZD65 => self.coords,
-        };
-
-        let from_xyz = match dest_color_space {
-            ColorSpace::SRGB => srgb::xyz_to_srgb(&to_xyz),
-            ColorSpace::SRGBLinear => srgb::xyz_to_linear_srgb(&to_xyz),
-            ColorSpace::OKLAB => oklab::xyz_to_oklab(&to_xyz),
-            ColorSpace::OKLCH => oklch::oklab_to_oklch(&oklab::xyz_to_oklab(&to_xyz)),
-            ColorSpace::XYZD65 => to_xyz,
-        };
-
-        Color {
-            space: dest_color_space,
-            coords: from_xyz,
-        }
-    }
-
-    fn is_rgb(&self) -> bool {
-        if matches!(self.space, ColorSpace::SRGB | ColorSpace::SRGBLinear) {
-            true
-        } else {
-            false
-        }
-    }
 }
 
 /// 5. let inGamut(color) be a function which returns true if, when passed a color, that color is inside the gamut of destination. For HSL and HWB, it returns true if the color is inside the gamut of sRGB.
 /// Expects an RGB value, such as all components are in [0., 1.].
 /// Non-RGB colors are considered in-gamut by default.
-pub fn in_gamut(color: &Color, dest_color_space: ColorSpace) -> bool {
+pub fn in_gamut<S>(color: &Color<S>, dest_color_space: ColorSpace) -> bool {
     let temp_color = color.convert(dest_color_space);
 
     if temp_color.is_rgb() {
@@ -96,7 +38,7 @@ pub fn clip(color: &Color, dest_color_space: ColorSpace) -> Color {
 
 /// <https://drafts.csswg.org/css-color-4/#pseudo-binsearch>
 #[allow(non_snake_case)]
-pub fn gamutmap_local_MINDE(origin: &Color, dest_color_space: ColorSpace) -> Color {
+pub fn gamutmap_local_MINDE(origin: &Color, dest_color_space: ColorSpace) -> Color<_> {
     // 1. if destination has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert origin to destination and return it as the gamut mapped color
     if matches!(
         dest_color_space,
