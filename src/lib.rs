@@ -1,19 +1,18 @@
 use wasm_bindgen::prelude::*;
 
-mod gamutmap;
+// mod gamutmap;
 mod matrix;
 mod spaces;
 
 use matrix::Vector3;
-use spaces::{oklab, oklch, srgb};
+
+use crate::spaces::convert::{Color, OKLCH, SRGB, convert};
 
 #[wasm_bindgen]
 pub fn srgb_to_oklch(r: f32, g: f32, b: f32) -> Vec<f32> {
     let rgb: Vector3 = [f64::from(r), f64::from(g), f64::from(b)];
 
-    let xyz = srgb::srgb_to_xyz(&rgb);
-    let oklab = oklab::xyz_to_oklab(&xyz);
-    let [l, c, h] = oklch::oklab_to_oklch(&oklab);
+    let [l, c, h] = convert::<SRGB, OKLCH>(&Color::new(rgb)).coords;
 
     vec![l as f32, c as f32, h as f32]
 }
@@ -22,9 +21,7 @@ pub fn srgb_to_oklch(r: f32, g: f32, b: f32) -> Vec<f32> {
 pub fn oklch_to_srgb(l: f32, c: f32, h: f32) -> Vec<f32> {
     let lch: Vector3 = [f64::from(l), f64::from(c), f64::from(h)];
 
-    let oklab = oklch::oklch_to_oklab(&lch);
-    let xyz = oklab::oklab_to_xyz(&oklab);
-    let [r, g, b] = srgb::xyz_to_srgb(&xyz);
+    let [r, g, b] = convert::<OKLCH, SRGB>(&Color::new(lch)).coords;
 
     vec![r as f32, g as f32, b as f32]
 }
@@ -35,7 +32,8 @@ mod tests {
 
     #[test]
     fn test_roundtrip() {
-        // f32 precision is around 7 decimal places
+        // f32 precision is around 7 decimal places;
+        // f64 epsilon in rust docs is 1e-10, so we'll use 1e-5 assuming "half" precision
         const EPSILON: f32 = 1e-5;
 
         let rgb = [1., 1., 0.];
@@ -44,7 +42,7 @@ mod tests {
         let back = oklch_to_srgb(lch[0], lch[1], lch[2]);
 
         for (a, b) in rgb.iter().zip(back.iter()) {
-            println!("a - b = {}", (a - b).abs());
+            // println!("|a - b| = {}", (a - b).abs());
             assert!((a - b).abs() < EPSILON);
         }
     }

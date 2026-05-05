@@ -3,7 +3,7 @@ use crate::matrix::{Matrix3, Vector3, matrix3_mult_vector3};
 /// Remove sRGB gamma-encoding from a color component (r, g, or b channel of sRGB).
 /// Translated from CSS Color 4 sample javascript code.
 /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
-fn linearize(c: f64) -> f64 {
+pub fn linearize(c: f64) -> f64 {
     let abs_c = c.abs();
 
     if abs_c <= 0.04045 {
@@ -16,7 +16,7 @@ fn linearize(c: f64) -> f64 {
 /// Gamma-encode a linear sRGB color component (r, g, or b channel of sRGB).
 /// Translated from CSS Color 4 sample javascript code.
 /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
-fn gamma_encode(c: f64) -> f64 {
+pub fn gamma_encode(c: f64) -> f64 {
     let abs_c = c.abs();
 
     if abs_c <= 0.0031308 {

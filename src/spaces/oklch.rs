@@ -20,7 +20,13 @@ pub fn oklab_to_oklch(lab: &Vector3) -> Vector3 {
 /// Translated from CSS Color 4 sample javascript code.
 /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
 pub fn oklch_to_oklab(lch: &Vector3) -> Vector3 {
+    const EPSILON: f64 = 0.000_004;
+
     let [l, c, h] = lch;
+    if *c <= EPSILON || h.is_nan() {
+        return [*l, 0., 0.];
+    }
+
     // let h_prime = h * PI / 180.;
     let h_prime = h.to_radians();
     [*l, c * h_prime.cos(), c * h_prime.sin()]
@@ -62,7 +68,7 @@ mod tests {
     fn test_toe_roundtrip() {
         const EPSILON: f64 = 1e-10;
 
-        let original = 0.5f64;
+        let original: f64 = 0.5;
         let forward = toe(original);
         let back = inv_toe(forward);
 
