@@ -1,5 +1,5 @@
 /// matrix of 3 rows of 3 columns
-/// references are m[r][c] (type is [[t; c]; r])
+/// references are m[r][c] (type is [[T; c]; r])
 pub type Matrix3 = [[f64; 3]; 3];
 /// vector of 3 rows (of 1 column)
 pub type Vector3 = [f64; 3];

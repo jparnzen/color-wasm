@@ -2,7 +2,7 @@ use crate::matrix::{Matrix3, Vector3, matrix3_mult_vector3};
 
 use std::marker::PhantomData;
 
-/// Unit/marker structs for each supported color space
+/// Unit/marker structs for each supported color space.
 pub struct SRGB;
 pub struct SRGBLinear;
 pub struct XYZD65;
@@ -11,6 +11,7 @@ pub struct OKLCH;
 pub struct OKLrAB;
 pub struct OKLrCH;
 
+/// A more type-safe Color representation, using phantom types.
 #[derive(PartialEq)]
 pub struct Color<S> {
     pub coords: Vector3,
@@ -26,6 +27,7 @@ impl<S> Color<S> {
     }
 }
 
+/// Clone implementation to deal with peculiarities of phantom types.
 impl<S> Clone for Color<S> {
     fn clone(&self) -> Self {
         Self {
@@ -35,6 +37,7 @@ impl<S> Clone for Color<S> {
     }
 }
 
+/// Debug implementation to deal with peculiarities of phantom types.
 impl<S> std::fmt::Debug for Color<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Color")
@@ -43,22 +46,52 @@ impl<S> std::fmt::Debug for Color<S> {
     }
 }
 
+/// Trait for base transformations to and from XYZ color space.
 #[allow(non_snake_case)]
 pub trait ColorConversion: Sized {
     fn to_XYZ(color: &Color<Self>) -> Color<XYZD65>;
     fn from_XYZ(color: &Color<XYZD65>) -> Color<Self>;
 }
 
+/// Blanket implementation for converting from S to Dest color spaces.
 impl<S: ColorConversion> Color<S> {
     pub fn convert_to<Dest: ColorConversion>(&self) -> Color<Dest> {
         Dest::from_XYZ(&S::to_XYZ(self))
     }
 }
 
+/// Defines gamut bounds for bounded color spaces (i.e. RGB spaces), with default in-gamut checking,
+/// and clipping to gamut bounds.
+pub trait BoundedColorSpace: ColorConversion {
+    const BOUNDS: [(f64, f64); 3];
+
+    fn in_gamut(color: &Color<Self>) -> bool {
+        color
+            .coords
+            .iter()
+            .zip(Self::BOUNDS.iter())
+            .all(|(c, &(lo, hi))| *c >= lo && *c <= hi)
+    }
+
+    fn clip(color: &Color<Self>) -> Color<Self> {
+        let coords =
+            std::array::from_fn(|i| color.coords[i].clamp(Self::BOUNDS[i].0, Self::BOUNDS[i].1));
+        Color::new(coords)
+    }
+}
+
+impl BoundedColorSpace for SRGB {
+    const BOUNDS: [(f64, f64); 3] = [(0., 1.); 3];
+}
+
+impl BoundedColorSpace for SRGBLinear {
+    const BOUNDS: [(f64, f64); 3] = [(0., 1.); 3];
+}
+
 /// Trait for gamma-encoded RGB spaces, such as sRGB, Display P3, and Rec2020.
 /// Linear RGB spaces DO NOT implement this trait.
 pub trait RGBSpace: Sized {
-    type Linear: Sized;
+    type Linear: BoundedColorSpace;
 
     const LINEAR_TO_XYZ: Matrix3;
     const XYZ_TO_LINEAR: Matrix3;
@@ -91,6 +124,8 @@ impl<S: RGBSpace> ColorConversion for S {
 impl RGBSpace for SRGB {
     type Linear = SRGBLinear;
 
+    /// Translated from CSS Color 4 sample javascript code.
+    /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
     #[rustfmt::skip]
     const LINEAR_TO_XYZ: Matrix3 = [
         [506752. / 1228815.,  87881. / 245763.,   12673. /   70218.],
@@ -104,6 +139,9 @@ impl RGBSpace for SRGB {
         [    705. /  12673.,   -2585. /  12673.,   705. /    667.],
     ];
 
+    /// Remove sRGB gamma-encoding from a color component (r, g, or b channel of sRGB).
+    /// Translated from CSS Color 4 sample javascript code.
+    /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
     fn linearize_channel(c: f64) -> f64 {
         let abs_c = c.abs();
 
@@ -114,6 +152,9 @@ impl RGBSpace for SRGB {
         }
     }
 
+    /// Gamma-encode a linear sRGB color component (r, g, or b channel of sRGB).
+    /// Translated from CSS Color 4 sample javascript code.
+    /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
     fn gamma_encode_channel(c: f64) -> f64 {
         let abs_c = c.abs();
 
@@ -145,6 +186,8 @@ impl ColorConversion for XYZD65 {
     }
 }
 
+/// Translated from CSS Color 4 sample javascript code.
+/// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
 impl OKLAB {
     #[rustfmt::skip]
     const OKLAB_TO_LMS: Matrix3 = [
@@ -190,6 +233,9 @@ impl ColorConversion for OKLAB {
     }
 }
 
+/// Transform OKLCH to and from OKLAB for further transformations.
+/// Translated from CSS Color 4 sample javascript code.
+/// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
 #[allow(non_snake_case)]
 impl OKLCH {
     fn to_OKLAB(oklch: &Color<Self>) -> Color<OKLAB> {
@@ -255,17 +301,20 @@ impl ColorConversion for OKLrCH {
     }
 }
 
+/// Transform an OKL* color point to an OKLr* color point.
 fn okl_to_oklr(lxy: &Vector3) -> Vector3 {
     let [l, x, y] = lxy;
     [toe(*l), *x, *y]
 }
 
+/// Transform an OKLr* color point to an OKL* color point.
 fn oklr_to_okl(lrxy: &Vector3) -> Vector3 {
     let [l, x, y] = lrxy;
     [inv_toe(*l), *x, *y]
 }
 
-/// Translated from C++ source from <https://bottosson.github.io/posts/colorpicker/#common-code>
+/// OKLr* lightness toe function for OKL* -> OKLr*.
+/// Translated from C++ source at <https://bottosson.github.io/posts/colorpicker/#common-code>
 fn toe(x: f64) -> f64 {
     const K1: f64 = 0.206;
     const K2: f64 = 0.03;
@@ -274,13 +323,24 @@ fn toe(x: f64) -> f64 {
     0.5 * (K3 * x - K1 + ((K3 * x - K1).powi(2) + 4. * K2 * K3 * x).sqrt())
 }
 
-/// Translated from C++ source from <https://bottosson.github.io/posts/colorpicker/#common-code>
+/// Inverse lightness toe function for OKLr* -> OKL*.
+/// Translated from C++ source at <https://bottosson.github.io/posts/colorpicker/#common-code>
 fn inv_toe(x: f64) -> f64 {
     const K1: f64 = 0.206;
     const K2: f64 = 0.03;
     const K3: f64 = (1. + K1) / (1. + K2);
 
     (x * x + K1 * x) / (K3 * (x + K2))
+}
+
+#[cfg(test)]
+/// Truncate fp values to a specified precision.
+pub(crate) fn set_precision(precision_digits: usize, vector: Vector3) -> Vector3 {
+    vector.map(|c| {
+        format!("{:.1$}", c, precision_digits)
+            .parse::<f64>()
+            .unwrap()
+    })
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -363,14 +423,6 @@ mod tests {
         for (a, b) in expected_oklch.iter().zip(result_coords.iter()) {
             assert!((a - b).abs() < EPSILON);
         }
-    }
-
-    fn set_precision(precision_digits: usize, vector: Vector3) -> Vector3 {
-        vector.map(|c| {
-            format!("{:.1$}", c, precision_digits)
-                .parse::<f64>()
-                .unwrap()
-        })
     }
 
     #[test]

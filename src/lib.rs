@@ -1,12 +1,15 @@
 use wasm_bindgen::prelude::*;
 
-// mod gamutmap;
+pub mod gamutmap;
 mod matrix;
 mod spaces;
 
 use matrix::Vector3;
 
-use crate::spaces::convert::{Color, OKLCH, SRGB};
+pub use crate::spaces::convert::{
+    BoundedColorSpace, Color, ColorConversion, OKLAB, OKLCH, OKLrAB, OKLrCH, RGBSpace, SRGB,
+    SRGBLinear, XYZD65,
+};
 
 #[wasm_bindgen]
 pub fn srgb_to_oklch(r: f32, g: f32, b: f32) -> Vec<f32> {
