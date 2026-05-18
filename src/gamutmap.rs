@@ -2,8 +2,8 @@ use crate::{matrix::Vector3, spaces::convert::*};
 
 impl<S: ColorConversion> Color<S> {
     /// Returns true if, when passed a color, that color is inside the gamut of destination.
-    /// For HSL and HWB, it returns true if the color is inside the gamut of sRGB.
-    /// NOTE HSL and HWB are currently unimplemented, but I plan to include them in the future.
+    // For HSL and HWB, it returns true if the color is inside the gamut of sRGB.
+    // NOTE HSL and HWB are currently unimplemented, but I plan to include them in the future.
     pub fn in_gamut<Dest: BoundedColorSpace>(&self) -> bool {
         Dest::in_gamut(&self.convert_to::<Dest>())
     }
@@ -126,6 +126,7 @@ impl<S: ColorConversion> Color<S> {
         const MAX_L: f64 = 1.;
 
         // 1. if destination has no gamut limits (XYZ-D65, XYZ-D50, Lab, LCH, Oklab, OkLCh) convert origin to destination and return it as the gamut mapped color
+        // NOTE I'm only mapping to bounded/RGB display spaces, at least for now, so I'm removing this test.
 
         // 2. let origin_OkLCh be origin converted from origin color space to the OkLCh color space
         let origin_oklch = self.convert_to::<OKLCH>();
@@ -240,11 +241,11 @@ fn cast_ray(start: &Vector3, end: &Vector3) -> Option<Vector3> {
         direction[i] = d;
 
         // 5.5. if abs(d) < 1E-12 ***
-        // NOTE there is a typo in the spec: comparision should be greater-than, not less-than.
+        // NOTE there is a typo in the spec: comparison should be greater-than, not less-than.
         // I reported this to the CSS Color 4 working group on github.
         // See <https://github.com/w3c/csswg-drafts/issues/10579#issuecomment-4122988782>.
         // NOTE also that the epsilon value has adjusted during the draft process.
-        // Pulling out the value to cover any future adjustements.
+        // Pulling out the value to cover any future adjustments.
         const EPSILON: f64 = 1e-12;
         if d.abs() > EPSILON {
             // 5.5.1. let inv_d be 1 / d
@@ -263,7 +264,7 @@ fn cast_ray(start: &Vector3, end: &Vector3) -> Option<Vector3> {
             tfar = t1.max(t2).min(tfar);
         }
         // 5.6. else if (a < bmin[i] or a > bmax[i])
-        else if (a < BMIN[i]) || (a > BMAX[i]) {
+        else if !(BMIN[i]..=BMAX[i]).contains(&a) {
             // 5.6.1. return INTERSECTION NOT FOUND
             return None;
         }
@@ -295,7 +296,7 @@ fn cast_ray(start: &Vector3, end: &Vector3) -> Option<Vector3> {
     Some(result)
 }
 
-/// Euclidian distance to calculate color difference in OKLAB space
+/// Euclidean distance to calculate color difference in OKLAB space
 /// <https://drafts.csswg.org/css-color-4/#color-difference-OK>
 fn delta_eok<T: ColorConversion, U: ColorConversion>(
     reference: &Color<T>,

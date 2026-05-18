@@ -27,7 +27,7 @@ impl<S> Color<S> {
     }
 }
 
-/// Clone implementation to deal with peculiarities of phantom types.
+// Manual implementation to avoid over-restrictive #[derive] additions.
 impl<S> Clone for Color<S> {
     fn clone(&self) -> Self {
         Self {
@@ -37,7 +37,7 @@ impl<S> Clone for Color<S> {
     }
 }
 
-/// Debug implementation to deal with peculiarities of phantom types.
+// Manual implementation to avoid over-restrictive #[derive] additions.
 impl<S> std::fmt::Debug for Color<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Color")
@@ -188,6 +188,7 @@ impl ColorConversion for XYZD65 {
 
 /// Translated from CSS Color 4 sample javascript code.
 /// <https://drafts.csswg.org/css-color-4/#color-conversion-code>
+#[allow(clippy::excessive_precision)]
 impl OKLAB {
     #[rustfmt::skip]
     const OKLAB_TO_LMS: Matrix3 = [
