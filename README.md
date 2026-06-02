@@ -1,6 +1,6 @@
 # color-wasm
 
-> **This project has been superseded by [color-rs](LINK-TO-COLOR-RS), a Cargo workspace that extracts the core library into a dedicated crate and adds a CLI tool alongside the WASM bindings. color-wasm is archived here as the origin of that work.**
+> **This project has been superseded by [color-rs](https://github.com/jparnzen/color-rs), a Cargo workspace that extracts the core library into a dedicated crate and adds a CLI tool alongside the WASM bindings. color-wasm is archived here as the origin of that work.**
 
 A Rust/WASM library implementing CSS Color 4 color space conversions and gamut mapping, compiled to WebAssembly for browser use.
 
@@ -26,7 +26,7 @@ All test values verified against the [Coloraide](https://facelessuser.github.io/
 
 ## Evolution
 
-The single-crate architecture here — core library and WASM bindings sharing a crate — made it difficult to add a CLI tool without pulling in wasm-bindgen as a dependency. **[color-rs](LINK-TO-COLOR-RS)** resolves this with a proper Cargo workspace: `color-lib` (pure Rust core), `color-wasm` (thin bindings), and `color-cli` (CLI tool). The color science is identical; the structure is cleaner.
+The single-crate architecture here — core library and WASM bindings sharing a crate — made it difficult to add a CLI tool without pulling in wasm-bindgen as a dependency. **[color-rs](https://github.com/jparnzen/color-rs)** resolves this with a proper Cargo workspace: `color-lib` (pure Rust core), `color-wasm` (thin bindings), and `color-cli` (CLI tool). The color science is identical; the structure is cleaner.
 
 ## A note on process
 
